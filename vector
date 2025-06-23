@@ -1,0 +1,295 @@
+#ifndef VECTOR_H
+#define VECTOR_H
+#include <initializer_list>
+#include <algorithm>
+
+template <typename T>
+class vector {
+	size_t size = 0;
+	size_t capacity = 0;
+	T *data = nullptr;
+public:
+	class iterator;
+	vector() = default;
+	vector(vector const &other) {
+		size = other.get_size();
+		capacity = other.get_capacity();
+		data = new T[capacity];
+		for (size_t i = 0; i < size; i++) {
+			data[i] = other[i];
+		}
+	}
+	vector &operator=(vector const &other) {
+		if (this != &other) {
+			delete[] data;
+			size = other.size;
+			capacity = other.capacity;
+			data = new T[capacity];
+			for (size_t i = 0; i < size; ++i) {
+				data[i] = other.data[i];
+			}
+		}
+		return *this;
+	}
+	vector(vector &&other) noexcept {
+		size = other.size;
+		capacity = other.capacity;
+		data = other.data;
+		other.size = 0;
+		other.capacity = 0;
+		other.data = nullptr;
+	}
+	vector &operator=(vector &&other) noexcept {
+		delete[] data;
+		size = other.size;
+		capacity = other.capacity;
+		data = other.data;
+		other.size = 0;
+		other.capacity = 0;
+		other.data = nullptr;
+		return *this;
+	}
+	vector(std::initializer_list<T> new_item) {
+		size = new_item.size();
+		capacity = new_item.size();
+		data = new T[size];
+		std::copy(new_item.begin(), new_item.end(), data);
+	}
+	vector&  operator=(std::initializer_list<T> new_item) {
+		size = new_item.size();
+		capacity = new_item.size();
+		data = new T[size];
+		std::copy(new_item.begin(), new_item.end(), data);
+		return *this;
+	}
+	vector(const size_t new_size, const std::initializer_list<T> new_item) {
+		size = new_size;
+		capacity = new_size;
+		data = new T[size];
+		std::copy(new_item.begin(), new_item.begin() + std::min(new_size, new_item.size()), data);
+	}
+	explicit vector(const size_t new_size) {
+		size = new_size;
+		capacity = new_size;
+		data = new T[size];
+	}
+	T &operator[](size_t index) {
+		return data[index];
+	}
+	void clear() {
+		delete[] data;
+		data = nullptr;
+		size = 0;
+		capacity = 0;
+	}
+	void reserve(const size_t new_capacity) {
+		if (new_capacity > capacity) {
+			capacity = new_capacity;
+			T *new_data = new T[capacity];
+			for (size_t i = 0; i < size; ++i) {
+				new_data[i] = data[i];
+			}
+			delete[] data;
+			data = new_data;
+		}
+	}
+	void shrink_to_fit() {
+		capacity = size;
+		T *new_data = new T[capacity];
+		for (size_t i = 0; i < size; ++i) {
+			new_data[i] = data[i];
+		}
+		delete[] data;
+		data = new_data;
+	}
+	void push_back(const T value) {
+		if (size == capacity) {
+			if (capacity == 0) {
+				capacity = 1;
+			} else {
+				capacity *= 2;
+			}
+			T *new_data = new T[capacity];
+			for (size_t i = 0; i < size; ++i) {
+				new_data[i] = data[i];
+			}
+			delete[] data;
+			data = new_data;
+		}
+		data[size] = value;
+		++size;
+	}
+	void erase_index(const size_t index) {
+		for (size_t i = index; i < size - 1; ++i) {
+			data[i] = data[i + 1];
+		}
+		--size;
+	}
+	void erase_item(const T item) {
+		iterator new_end_it = std::remove(begin(), end(), item);
+		size = new_end_it - begin();
+		shrink_to_fit();
+	}
+	[[nodiscard]]size_t find(const T item) const {
+		for (size_t i = 0; i < size; ++i) {
+			if (data[i] == item) {
+				return i;
+			}
+		}
+		return -1;
+	}
+	[[nodiscard]] vector<size_t> find_all(const T item) const {
+		vector<size_t> result;
+		for (size_t i = 0; i < size; ++i) {
+			if (data[i] == item) {
+				result.push_back(i);
+			}
+		}
+		return result;
+	}
+	void update_pointer(T*& check_address, const size_t index) {
+		if (need_update(check_address, index)) {
+			check_address = get_new_pointer(index);
+		}
+	}
+	void update_iterator(iterator& check_address,const  size_t index) {
+		if (need_update(check_address, index)) {
+			check_address = get_new_pointer(index);
+		}
+	}
+	bool need_update(T& check_address, size_t index) {
+		return data[index] != check_address;
+	}
+	bool need_update(iterator check_address, size_t index) {
+		return data[index] != *check_address;
+	}
+	T* get_new_pointer(size_t index) {
+		return data + index;
+	}
+	iterator get_new_iterator(size_t index) {
+		return iterator(data + index);
+	}
+	[[nodiscard]] bool empty() const {
+		return size == 0;
+	}
+	[[nodiscard]] T &operator[](size_t index) const {
+		return data[index];
+	}
+	[[nodiscard]] size_t get_size() const {
+		return size;
+	}
+	[[nodiscard]] size_t get_capacity() const {
+		return capacity;
+	}
+	~vector() {
+		delete[] data;
+	}
+	iterator begin() {
+		return iterator(data);
+	}
+	iterator end() {
+		return iterator(data + size);
+	}
+	[[nodiscard]] iterator begin() const {
+		return iterator(data);
+	}
+	[[nodiscard]] iterator end() const {
+		return iterator(data + size);
+	}
+	class iterator {
+		T *current_position;
+   public:
+   using iterator_category = std::random_access_iterator_tag;
+   using value_type = T;
+   using difference_type = std::ptrdiff_t;
+   using pointer = T*;
+   using reference = T&;
+   iterator(T* startpoint) : current_position(startpoint){} //NOLINT
+	 iterator() : current_position(nullptr){}
+   iterator(T* startpoint, const size_t index) : current_position(startpoint) {}
+   iterator(const iterator& other) : current_position(other.current_position){}
+   iterator(iterator&& other) noexcept : current_position(other.current_position){
+    other.current_position = nullptr;
+   }
+   iterator& operator=(const iterator& other) {
+    if (this != &other) {
+     current_position = other.current_position;
+    }
+    return *this;
+   }
+   iterator& operator=(iterator&& other) noexcept {
+    if (this != &other) {
+     current_position = other.current_position;
+     other.current_position = nullptr;
+    }
+    return *this;
+   }
+   void operator=(const T* new_point) { //NOLINT
+    current_position = const_cast<T*>(new_point);
+   }
+   T& operator*() {
+    return *current_position;
+   }
+   const T& operator*() const {
+    return *current_position;
+   }
+   T* operator->() {
+    return current_position;
+   }
+   const T* operator->() const {
+    return current_position;
+   }
+   iterator& operator++(int) {
+    ++current_position;
+    return *this;
+   }
+   iterator& operator--(int) {
+    --current_position;
+    return *this;
+   }
+   iterator& operator++() {
+    ++current_position;
+    return *this;
+   }
+   iterator& operator--() {
+    --current_position;
+    return *this;
+   }
+   iterator operator+(size_t by) const {
+    return iterator(current_position + by);
+   }
+   iterator operator-(size_t by) const {
+    return iterator(current_position - by);
+   }
+   difference_type operator-(const iterator& other) const {
+    return current_position - other.current_position;
+   }
+   iterator& operator+=(size_t by) {
+    current_position += by;
+    return *this;
+   }
+   iterator& operator-=(size_t by) {
+    current_position -= by;
+    return *this;
+   }
+   bool operator==(const iterator &other) const {
+    return current_position == other.current_position;
+   }
+   bool operator!=(const iterator &other) const {
+    return current_position != other.current_position;
+   }
+   bool operator<(const iterator &other) const {
+    return current_position < other.current_position;
+   }
+   bool operator>(const iterator &other) const {
+    return current_position > other.current_position;
+   }
+   bool operator<=(const iterator &other) const {
+    return current_position <= other.current_position;
+   }
+   bool operator>=(const iterator &other) const {
+	   return current_position >= other.current_position;
+   }
+  };
+};
+#endif
